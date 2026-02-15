@@ -1,0 +1,437 @@
+# STACK
+
+# REGS
+
+# FLAGS
+F1
+
+# SEED
+
+# MODE
+MTRIG: DEG
+MFMT: FIX 6
+
+# EQUATION LIST
+EQNPTR: 0
+EQN
+EQNEND
+
+# PROGRAM
+PTR: 0
+PGM
+  GTO D
+  LBL J
+  STO X
+  R\down;
+  STO Y
+  R\down;
+  STO Z
+  R\down;
+  STO T
+  R\down;
+  IP
+  LASTx
+  FP
+  100
+  \mul;
+  FP
+  LASTx
+  IP
+  x<>y
+  1E4
+  \mul;
+  R\up;
+  2
+  -
+  x>0?
+  GTO K
+  12
+  +
+  x<>y
+  1
+  -
+  x<>y
+  LBL K
+  1
+  -
+  153
+  \mul;
+  2
+  +
+  5
+  \div;
+  IP
+  R\up;
+  +
+  x<>y
+  ENTER
+  ENTER
+  100
+  \div;
+  IP
+  146097
+  \mul;
+  4
+  \div;
+  IP
+  x<>y
+  100
+  XEQ M
+  1461
+  \mul;
+  4
+  \div;
+  IP
+  +
+  +
+  1721119
+  +
+  STO X
+  RCL T
+  RCL Z
+  RCL Y
+  R\up;
+  RTN
+  LBL G
+  STO X
+  R\down;
+  STO Y
+  R\down;
+  STO Z
+  R\down;
+  STO T
+  R\down;
+  1721119
+  -
+  4
+  \mul;
+  1
+  -
+  ENTER
+  ENTER
+  146097
+  \div;
+  x<>y
+  LASTx
+  XEQ M
+  4
+  \div;
+  IP
+  4
+  \mul;
+  3
+  +
+  ENTER
+  ENTER
+  1461
+  XEQ M
+  x<>y
+  1461
+  \div;
+  IP
+  R\up;
+  IP
+  100
+  \mul;
+  +
+  x<>y
+  4
+  +
+  4
+  \div;
+  IP
+  5
+  \mul;
+  3
+  -
+  ENTER
+  ENTER
+  153
+  XEQ M
+  x<>y
+  153
+  \div;
+  IP
+  10
+  -
+  x<0?
+  GTO H
+  12
+  -
+  R\up;
+  1
+  +
+  R\up;
+  x<>y
+  R\down;
+  R\down;
+  LBL H
+  13
+  +
+  x<>y
+  5
+  +
+  5
+  \div;
+  IP
+  R\up;
+  1E4
+  \div;
+  +
+  100
+  \div;
+  +
+  STO X
+  RCL Y
+  RCL Z
+  RCL T
+  R\up;
+  RTN
+  LBL N
+  XEQ J
+  x<>y
+  XEQ J
+  -
+  RTN
+  LBL D
+  x<>y
+  XEQ J
+  +
+  XEQ G
+  FIX 6
+  FS? 1
+  XEQ W
+  FS? 1
+  x<>y
+  RTN
+  LBL W
+  STO D
+  XEQ J
+  1
+  +
+  7
+  XEQ M
+  x=0?
+  7
+  STO W
+  CLx
+  ENTER
+  ENTER
+  ENTER
+  FS? 1
+  RCL D
+  FS? 1
+  FIX 6
+  RCL W
+  RTN
+  RTN
+  LBL M
+  STO I
+  x<>y
+  STO P
+  x<>y
+  \div;
+  IP
+  RCL I
+  \mul;
+  RCL P
+  x<>y
+  -
+  RTN
+  LBL O
+  R\down;
+  STO Y
+  R\down;
+  STO Z
+  R\down;
+  STO T
+  R\down;
+  ENTER
+  ENTER
+  100
+  \div;
+  IP
+  1
+  +
+  ENTER
+  ENTER
+  8
+  \mul;
+  5
+  +
+  25
+  \div;
+  IP
+  5
+  -
+  x<>y
+  3
+  \mul;
+  4
+  \div;
+  IP
+  12
+  -
+  -
+  20
+  +
+  R\up;
+  19
+  XEQ M
+  1
+  +
+  11
+  \mul;
+  +
+  LASTx
+  11
+  \div;
+  LASTx
+  -
+  x<>y
+  30
+  XEQ M
+  24
+  -
+  x=0?
+  GTO P
+  x<>y
+  x\le;0?
+  GTO Q
+  x<>y
+  1
+  -
+  x\neq;0?
+  GTO P
+  1
+  +
+  LBL P
+  1
+  +
+  x<>y
+  LBL Q
+  R\down;
+  20
+  x<>y
+  -
+  21
+  -
+  x\ge;0?
+  GTO R
+  30
+  +
+  LBL R
+  21
+  +
+  R\up;
+  100
+  \div;
+  IP
+  1
+  +
+  3
+  \mul;
+  4
+  \div;
+  IP
+  12
+  -
+  4
+  \mul;
+  5
+  R\up;
+  \mul;
+  LASTx
+  R\down;
+  x<>y
+  -
+  4
+  \div;
+  IP
+  10
+  -
+  x<>y
+  +
+  LASTx
+  7
+  +
+  x<>y
+  7
+  XEQ M
+  -
+  59
+  +
+  x<>y
+  400
+  XEQ M
+  x=0?
+  GTO S
+  R\up;
+  x<>y
+  R\down;
+  100
+  XEQ M
+  x=0?
+  GTO T
+  R\up;
+  x<>y
+  R\down;
+  4
+  XEQ M
+  x\neq;0?
+  GTO T
+  LBL S
+  x<>y
+  1
+  +
+  x<>y
+  LBL T
+  R\up;
+  +
+  x<>y
+  STO X
+  RCL T
+  RCL Z
+  RCL Y
+  R\up;
+  RTN
+  LBL E
+  XEQ O
+  LASTx
+  1E6
+  \div;
+  1.01
+  +
+  XEQ J
+  +
+  1
+  -
+  XEQ G
+  FIX 6
+  RTN
+  LBL C
+  XEQ E
+  STO E
+  -46
+  XEQ D
+  STO H
+  RCL E
+  49
+  XEQ D
+  STO N
+  RCL E
+  60
+  XEQ D
+  STO C
+  FIX 6
+  RCL H
+  RCL E
+  RCL N
+  RCL C
+  RTN
+  LBL B
+  7.201969
+  x<>y
+  XEQ N
+  RTN
+PGMEND
