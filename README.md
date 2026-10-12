@@ -1,3 +1,5 @@
+![Social Media Preview](assets/alldates32_social_preview.png)
+
 # alldates Statefile
 
 ## TABLE OF CONTENTS
