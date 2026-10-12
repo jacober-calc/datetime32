@@ -1,0 +1,197 @@
+# STACK
+
+# REGS
+
+# FLAGS
+
+# SEED
+
+# MODE
+MTRIG: DEG
+MFMT: FIX 6
+
+# EQUATION LIST
+EQNPTR: 0
+EQN
+EQNEND
+
+# PROGRAM
+PTR: 0
+PGM
+  LBL T
+  \rarr;HR
+  x<>y
+  \rarr;HR
+  -
+  60
+  \mul;
+  RND
+  60
+  \div;
+  \rarr;HMS
+  RTN
+  LBL N
+  XEQ J
+  x<>y
+  XEQ J
+  -
+  R\up;
+  CLx
+  ENTER
+  ENTER
+  R\up;
+  RTN
+  LBL D
+  x<>y
+  XEQ J
+  +
+  XEQ G
+  ENTER
+  x<>y
+  XEQ W
+  x<>y
+  RTN
+  LBL C
+  365.25
+  STO B
+  30.6001
+  STO D
+  1720982
+  STO E
+  RTN
+  LBL J
+  x<>y
+  STO N
+  R\down;
+  ENTER
+  IP
+  STO I
+  R\down;
+  FP
+  100
+  \mul;
+  ENTER
+  IP
+  STO F
+  R\down;
+  FP
+  4
+  10\powx;
+  \mul;
+  STO P
+  RCL I
+  2
+  x<y?
+  GTO A
+  13
+  STO+ I
+  1
+  STO- P
+  GTO F
+  LBL A
+  1
+  STO+ I
+  LBL F
+  XEQ C
+  RCL P
+  RCL B
+  \mul;
+  IP
+  RCL I
+  RCL D
+  \mul;
+  IP
+  +
+  RCL F
+  +
+  RCL E
+  +
+  RCL N
+  x<>y
+  RTN
+  LBL G
+  RCL E
+  -
+  STO F
+  122
+  -
+  10
+  1/x
+  -
+  RCL B
+  \div;
+  IP
+  STO P
+  RCL B
+  \mul;
+  IP
+  +/-
+  RCL F
+  +
+  RCL D
+  \div;
+  IP
+  STO I
+  RCL D
+  \mul;
+  IP
+  RCL P
+  RCL B
+  \mul;
+  IP
+  +
+  +/-
+  RCL F
+  +
+  STO F
+  14
+  RCL I
+  x<y?
+  GTO E
+  13
+  STO- I
+  GTO L
+  LBL E
+  1
+  STO- I
+  LBL L
+  RCL I
+  2
+  x<y?
+  GTO H
+  1
+  STO+ P
+  LBL H
+  RCL P
+  6
+  10\powx;
+  \div;
+  RCL F
+  100
+  \div;
+  +
+  RCL I
+  +
+  FIX 6
+  RTN
+  LBL M
+  STO I
+  x<>y
+  STO P
+  x<>y
+  \div;
+  IP
+  RCL I
+  \mul;
+  RCL P
+  x<>y
+  -
+  RTN
+  LBL W
+  XEQ J
+  1
+  +
+  7
+  XEQ M
+  RTN
+PGMEND
