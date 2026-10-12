@@ -1,176 +1,187 @@
-![Social Media Preview](assets/alldates32_social_preview.png)
+![Social Media Preview](assets/datetime32_social_preview.png)
 
-# alldates Statefile
+# datetime Statefile
 
 ## TABLE OF CONTENTS
 
-1. [Introduction](#introduction)
-2. [Theory of Operations](#theory-of-operations)
-3. [Variable Definitions](#variable-definitions)
-4. [Program Descriptions](#program-descriptions)
-5. [Operating Instructions](#operating-instructions)
-6. [Example Calculations](#example-calculations)
-7. [Quick Reference](#quick-reference)
-8. [Program Listing](#program-listing)
+1. [Introduction](#1-introduction)
+2. [Theory of Operations](#2-theory-of-operations)
+3. [Variable Definitions](#3-variable-definitions)
+4. [Program Descriptions](#4-program-descriptions)
+5. [Operating Instructions](#5-operating-instructions)
+6. [Example Calculations](#6-example-calculations)
+7. [Quick Reference](#7-quick-reference)
+8. [Program Listing](#8-program-listing)
 
 ---
 
-## INTRODUCTION
+## 1. INTRODUCTION
 
-This program suite provides comprehensive date calculation capabilities for the SwissMicros DM32 calculator, replicating and extending the date functions found on the classic HP-12C financial calculator. The programs enable date arithmetic, day-of-week determination, and liturgical calendar calculations.
+This program suite provides date and time calculations for the SwissMicros DM32 calculator, replicating the date functions of the classic HP-12C financial calculator and adding a time-difference function.
 
-### Purpose
+### 1.1 Purpose
 
 The program enables users to:
 
-- Calculate days between two dates
+- Calculate the number of days between two dates
 - Add or subtract days from a given date
-- Determine day of week for any date
-- Calculate Easter Sunday for any year
-- Calculate major Catholic moveable feast dates
+- Determine the day of week for any date
+- Calculate the time elapsed between two times of day
 
-### Date Format
+### 1.2 Date and Time Formats
 
-All dates use the format **M.DDYYYY** where:
+All dates use the format **M.DDYYYY**:
 
 - **M** = Month (1-12)
 - **DD** = Day (01-31)
 - **YYYY** = Year (four digits)
 
+All times use the format **H.MMSS**, the same format used by the DM32's `→HR` and `→HMS` functions:
+
+- **H** = Hours (0-23)
+- **MM** = Minutes (00-59)
+- **SS** = Seconds (00-59)
+
 **Examples:**
 - March 15, 2024 = `3.152024`
 - December 25, 2025 = `12.252025`
+- 5:15 PM = `17.15`
+- 9:15:30 AM = `9.1530`
 
-### System Requirements
+### 1.3 Valid Date Range
 
-SwissMicros DM32 calculator with RPN operating system. Program requires approximately 437 program steps.
+Dates from **March 1, 1900 (3.011900) through February 28, 2100 (2.282100)** are calculated exactly. See section 2.3.
 
-**Note:** When the statefile is loaded, Flag 1 (F1) is set by default, enabling automatic day-of-week calculation with LBL D. Clear Flag 1 with `[CF] [1]` if this feature is not desired.
+### 1.4 System Requirements
 
----
+SwissMicros DM32 calculator with RPN operating system. Program requires 176 program steps in 13 labels. No flags or equations are used.
 
-## THEORY OF OPERATIONS
+The program uses only functions found on the HP-32SII and requires about 344 bytes including variables, so it can also be keyed into an HP-32SII from the listing in section 8. The Statefile itself loads only on the DM32.
 
-### Julian Day Number (JDN)
+### 1.5 Install and Download
 
-The core of all date calculations is the Julian Day Number system, a continuous count of days since January 1, 4713 BCE (proleptic Julian calendar). By converting calendar dates to JDN, date arithmetic becomes simple integer addition and subtraction.
-
-The programs use the proleptic Gregorian calendar algorithm with a reference offset of 1721119 (representing March 1, 0000 in the computational calendar). This approach correctly handles:
-
-- Leap years (including century exceptions)
-- Variable month lengths
-- Calendar transitions across millennia
-
-### Date-to-JDN Conversion Algorithm
-
-The conversion treats January and February as months 13 and 14 of the previous year to simplify leap year handling. The algorithm applies corrections for:
-
-- 400-year cycle (146097 days)
-- 4-year cycle (1461 days)
-- Month-day offset within year
-
-### Easter Computus
-
-Easter calculation uses the Meeus/Jones/Butcher algorithm, an optimized method for determining Easter Sunday under the Gregorian calendar rules. The algorithm accounts for:
-
-- Golden Number (19-year Metonic cycle)
-- Solar and lunar corrections
-- Century adjustments
-- Leap year effects
-
-Easter is defined as the first Sunday following the first ecclesiastical full moon occurring on or after the vernal equinox (nominally March 21).
-
-### Modulo Operation
-
-Since the HP-32SII and DM32 lack a native modulo function, the program implements MOD(P, I) as: `P - (IP(P/I) × I)`. This operation is fundamental to calendar calculations and day-of-week determination.
+Copy **DATETIME.d32** to the `/STATE` folder of the DM32's internal USB disk, then load it from the calculator. Instructions are available [via the DM32 User Manual](https://technical.swissmicros.com/dm32/doc/dm32_user_manual.html#_saving_and_loading_a_state).
 
 ---
 
-## VARIABLE DEFINITIONS
+## 2. THEORY OF OPERATIONS
+
+### 2.1 Day Numbers
+
+Every date calculation converts calendar dates into day numbers: a continuous count of days. Once dates are day numbers, the days between two dates is a subtraction, and adding days to a date is an addition. Within the valid range, the program's day number is the same as the astronomical Julian Day Number.
+
+![Day numbers](assets/day_numbers.svg)
+
+Every date program follows the same path:
+
+```mermaid
+flowchart TD
+    nIn["Date in M.DDYYYY format"] --> nJ["LBL J: date to day number"]
+    nJ --> nQ{"Which program?"}
+    nQ -- "XEQ N" --> nN["Subtract the two day numbers<br/>X: days between dates"]
+    nQ -- "XEQ D" --> nD["Add or subtract the days"]
+    nQ -- "XEQ W" --> nW["Day number + 1, mod 7<br/>X: day of week"]
+    nD --> nG["LBL G: day number to date"]
+    nG --> nW2["LBL W: day of week"]
+    nW2 --> nOut["X: new date, Y: day of week"]
+```
+
+### 2.2 Date-to-Day-Number Formula
+
+LBL J splits the date into month, day, and year. January and February are treated as months 13 and 14 of the previous year, so the leap day falls at the end of the computational year and every other month keeps a fixed position. LBL F then applies the HP day-number formula:
+
+```
+Day number = IP(365.25 × y) + IP(30.6001 × I) + day + 1720982
+```
+
+Where y is the year (reduced by 1 for January and February) and I is the month + 1 (or the month + 13 for January and February). LBL C stores the three constants in B, D, and E.
+
+![The computational year](assets/computational_year.svg)
+
+LBL G reverses the formula. It recovers the year from the day number with 365.25, the month with 30.6001, and the day as the remainder, then LBL H assembles the result in M.DDYYYY format.
+
+### 2.3 Valid Date Range
+
+The factor 365.25 treats every fourth year as a leap year. The Gregorian calendar skips the leap day in century years not divisible by 400 (1700, 1800, 1900, 2100), so the formula is exact only between two of those skips: from March 1, 1900 through February 28, 2100. Each skipped century year outside the range shifts results by one day.
+
+![Valid date range](assets/valid_range.svg)
+
+### 2.4 Day of Week and the Modulo Operation
+
+The DM32 has no modulo function, so LBL M calculates the remainder as: `P - (IP(P/I) × I)`. LBL W adds 1 to the day number and takes the remainder after dividing by 7. The result runs from 0 for Sunday to 6 for Saturday.
+
+![Day of week with LBL W](assets/day_of_week.svg)
+
+### 2.5 Time Difference
+
+LBL T converts both times from H.MMSS to decimal hours with `→HR`, subtracts the start from the end, and converts the result back with `→HMS`. Before converting back, it rounds the elapsed minutes with `RND`, which removes conversion error so that seconds come out exact.
+
+![Time differences with LBL T](assets/time_difference.svg)
+
+---
+
+## 3. VARIABLE DEFINITIONS
 
 | Variable | Description |
 |----------|-------------|
-| **X, Y, Z, T** | Original date storage (preserves input during conversions) |
-| **I** | Modulo divisor (temporary in MOD function) |
-| **P** | Modulo dividend (temporary in MOD function) |
-| **D** | Date temporary storage (day-of-week routine) |
-| **W** | Day of week result (0-6: Sun-Sat, or 1-7) |
-| **E** | Easter Sunday date (M.DDYYYY format) |
-| **H** | Ash Wednesday date (Easter - 46 days) |
-| **N** | Ascension Thursday date (Easter + 49 days) |
-| **C** | Corpus Christi date (Easter + 60 days) |
-
-**Note:** Registers X, Y, Z, T store the original date input (and year for Easter functions) to preserve values during internal conversions between calendar date and Julian Day Number formats.
+| **B** | Constant 365.25 (set by LBL C) |
+| **D** | Constant 30.6001 (set by LBL C) |
+| **E** | Constant 1720982 (set by LBL C) |
+| **F** | Day of month (internal use) |
+| **I** | Month index; divisor in LBL M (internal use) |
+| **P** | Year; dividend in LBL M (internal use) |
+| **N** | Stack value preserved by LBL J (internal use) |
 
 ---
 
-## PROGRAM DESCRIPTIONS
+## 4. PROGRAM DESCRIPTIONS
 
-### User Programs
-
-These are the primary functions called directly by users:
+### 4.1 User Programs
 
 #### LBL N - Days Between Dates (ΔDYS)
 
-Calculates the number of days between two dates. Equivalent to HP-12C ΔDYS function.
+Calculates the number of days between two dates. Equivalent to the HP-12C ΔDYS function.
 
-- **Inputs:** Date1 (Y register), Date2 (X register)
-- **Output:** Number of days (signed integer)
-- **Operation:** Converts both dates to JDN and returns the difference
+- **Inputs:** Date 1 (Y register), Date 2 (X register)
+- **Output:** Days from Date 1 to Date 2 in the X register (negative if Date 2 is earlier)
 
 #### LBL D - Date Arithmetic
 
-Adds or subtracts days from a date. Equivalent to HP-12C DATE function.
+Adds or subtracts days from a date. Equivalent to the HP-12C DATE function.
 
-- **Inputs:** Date (Y register), Days (X register, ± for backward)
-- **Output:** New date in M.DDYYYY format
-- **Flag F1:** When set, also returns day of week in register W
+- **Inputs:** Date (Y register), Days (X register, negative for backward)
+- **Outputs:** New date in M.DDYYYY format (X register), day of week (Y register)
 
-#### LBL E - Easter Date Calculator
+#### LBL W - Day of Week
 
-Calculates Easter Sunday for a given year using the Meeus/Jones/Butcher algorithm.
+Returns the day of week for a date.
 
-- **Input:** Year (YYYY format, e.g., 2024)
-- **Output:** Easter date in M.DDYYYY format (stored in register E)
+- **Input:** Date (X register)
+- **Output:** Day of week in the X register (0 = Sunday through 6 = Saturday)
 
-#### LBL C - Catholic Holy Days Calculator
+#### LBL T - Time Difference
 
-Calculates four major Catholic moveable feast dates based on Easter.
+Calculates the time elapsed between two times of day.
 
-- **Input:** Year (YYYY format)
-- **Outputs (stack, bottom to top):**
-  - **X:** Ash Wednesday (Easter - 46 days)
-  - **Y:** Easter Sunday
-  - **Z:** Ascension Thursday (Easter + 49 days)
-  - **T:** Corpus Christi (Easter + 60 days)
-- **Registers:** H=Ash Wed, E=Easter, N=Ascension, C=Corpus Christi
+- **Inputs:** Start time (Y register), End time (X register), both in H.MMSS format
+- **Output:** Elapsed time in H.MMSS format (X register)
 
-#### LBL B - Days from Reference Date
+### 4.2 Internal Subroutines
 
-Calculates days between input date and a customizable reference date. The Apollo 11 moon landing (July 20, 1969 = 7.201969) is set by default as an example, but this should be personalized to any significant date: your birthday, an anniversary, an important event, or countdown date.
+These are called by the user programs and should not be run directly:
 
-- **Input:** Date (M.DDYYYY format)
-- **Output:** Number of days from reference date
-- **Customization:** Edit line 2 of LBL B to change reference date (default: 7.201969)
-
-### Internal Subroutines
-
-These functions are called internally and should not be executed directly by users:
-
-- **LBL J:** Date to Julian Day Number converter
-- **LBL G:** Julian Day Number to date converter
-- **LBL M:** Modulo (remainder) function helper
-- **LBL O:** Easter computus core algorithm
-- **LBL W:** Day of week calculator (when F1 is set)
-- **LBL K, H, P, Q, R, S, T:** Internal branching labels
+- **LBL J:** Date to day number
+- **LBL A, F:** Month index and day-number formula (part of LBL J)
+- **LBL C:** Stores the day-number constants
+- **LBL G:** Day number to date
+- **LBL E, L, H:** Month, year correction, and M.DDYYYY assembly (part of LBL G)
+- **LBL M:** Modulo (remainder) function
 
 ---
 
-## OPERATING INSTRUCTIONS
+## 5. OPERATING INSTRUCTIONS
 
 ### 5.1 Days Between Two Dates (LBL N)
-
-**Purpose:** Calculate number of days between two dates.
 
 **Procedure:**
 ```
@@ -180,85 +191,58 @@ These functions are called internally and should not be executed directly by use
 4. Press [XEQ] [N]
 ```
 
-**Result:** Number of days displayed (positive if date2 > date1)
+**Result:** Number of days in the X register
 
 ### 5.2 Date Arithmetic (LBL D)
 
-**Purpose:** Add or subtract days from a date.
-
-**Procedure (Forward):**
+**Forward in time:**
 ```
-1. Enter date (M.DDYYYY)
+1. Enter starting date (M.DDYYYY)
 2. Press [ENTER]
-3. Enter number of days to add
+3. Enter number of days
 4. Press [XEQ] [D]
 ```
 
-**Procedure (Backward):**
+**Backward in time:**
 ```
-1. Enter date (M.DDYYYY)
+1. Enter starting date (M.DDYYYY)
 2. Press [ENTER]
 3. Enter number of days
 4. Press [+/-] to make negative
 5. Press [XEQ] [D]
 ```
 
-**Optional - Day of Week:**
+**Result:** New date in the X register; day of week in the Y register (press `[x<>y]` to view)
 
-Flag 1 is **SET BY DEFAULT** when the statefile is loaded, so LBL D automatically calculates day of week and stores it in register W.
-
-- Day of week: 0=Sunday through 6=Saturday (or 1=Sunday through 7=Saturday)
-- View with `[RCL] [W]`
-- To disable this feature: `[CF] [1]`
-- To re-enable: `[SF] [1]`
-
-### 5.3 Easter Date (LBL E)
-
-**Purpose:** Calculate Easter Sunday for any year.
-
-**Procedure:**
-```
-1. Enter year (e.g., 2024)
-2. Press [XEQ] [E]
-```
-
-**Result:** Easter date in M.DDYYYY format (also stored in register E)
-
-### 5.4 Catholic Holy Days (LBL C)
-
-**Purpose:** Calculate major moveable feast dates for a year.
-
-**Procedure:**
-```
-1. Enter year (e.g., 2025)
-2. Press [XEQ] [C]
-```
-
-**Results:** Four dates displayed on stack:
-- Press `[R↓]` repeatedly to view each date
-- Or use `[RCL] [H]`, `[RCL] [E]`, `[RCL] [N]`, `[RCL] [C]`
-
-### 5.5 Days from Reference Date (LBL B)
-
-**Purpose:** Calculate days from Apollo 11 moon landing (July 20, 1969).
+### 5.3 Day of Week (LBL W)
 
 **Procedure:**
 ```
 1. Enter date (M.DDYYYY)
-2. Press [XEQ] [B]
+2. Press [XEQ] [W]
 ```
 
-**Result:** Number of days from 7.201969
+**Result:** Day of week in the X register (0 = Sunday through 6 = Saturday)
 
-**To Customize Reference Date:**
+### 5.4 Time Difference (LBL T)
 
-Edit LBL B, line 2 in program listing:
-- Change `7.201969` to your desired date (M.DDYYYY format)
-- Examples: Birthday, anniversary, countdown event, etc.
+**Procedure:**
+```
+1. Enter start time (H.MMSS)
+2. Press [ENTER]
+3. Enter end time (H.MMSS)
+4. Press [XEQ] [T]
+```
+
+**Result:** Elapsed time in H.MMSS format in the X register
+
+**Overnight:** If the end time is on the next day, add 24 to the end time before running LBL T (6:30 AM next day = `30.30`).
 
 ---
 
-## EXAMPLE CALCULATIONS
+## 6. EXAMPLE CALCULATIONS
+
+![Examples 6.1 to 6.3](assets/date_arithmetic.svg)
 
 ### 6.1 Days Between Dates
 
@@ -299,611 +283,362 @@ Edit LBL B, line 2 in program listing:
 
 **Solution:**
 ```
-(Flag 1 is already set by default in the statefile)
 2.142024 [ENTER] 100 [XEQ] [D]
-[RCL] [W]         (View day of week)
+[x<>y]            (View day of week)
 ```
 
 **Expected Results:**
 - Date: 5.242024 (May 24, 2024)
-- Day of Week: 5 (Friday; 0=Sunday or 1=Sunday depending on algorithm)
+- Day of Week: 5 (Friday)
 
-**Note:** To disable day-of-week calculation, use `[CF] [1]`
+### 6.5 Day of Week Directly
 
-### 6.5 Easter Sunday
-
-**Problem:** When is Easter Sunday in 2025?
+**Problem:** On what day of the week did July 20, 1969 fall?
 
 **Solution:**
 ```
-2025 [XEQ] [E]
+7.201969 [XEQ] [W]
 ```
 
-**Expected Result:** 4.202025 (April 20, 2025)
+**Expected Result:** 0 (Sunday)
 
-### 6.6 Easter Sunday - Historical
+### 6.6 Leap Year Testing
 
-**Problem:** When was Easter in 2000?
-
-**Solution:**
-```
-2000 [XEQ] [E]
-```
-
-**Expected Result:** 4.232000 (April 23, 2000)
-
-### 6.7 Catholic Holy Days
-
-**Problem:** Calculate all major moveable feasts for 2024.
-
-**Solution:**
-```
-2024 [XEQ] [C]
-```
-
-**Expected Results (displayed on stack, X at bottom):**
-```
-X: Ash Wednesday (H):     2.142024 (February 14, 2024)
-Y: Easter Sunday (E):     3.312024 (March 31, 2024)
-Z: Ascension Thursday (N): 5.092024 (May 9, 2024)
-T: Corpus Christi (C):    5.302024 (May 30, 2024)
-```
-
-Use `[R↓]` to cycle through stack or `[RCL] [H/E/N/C]` to view individual dates.
-
-### 6.8 Leap Year Testing
-
-**Problem:** Verify leap year handling by calculating days in February 2024.
+**Problem:** Verify leap year handling by calculating days in February 2024 and February 2000.
 
 **Solution:**
 ```
 2.012024 [ENTER] 3.012024 [XEQ] [N]
-```
-
-**Expected Result:** 29 days (2024 is a leap year)
-
-### 6.9 Century Year Testing
-
-**Problem:** Verify century exception - was 2000 a leap year?
-
-**Solution:**
-```
 2.012000 [ENTER] 3.012000 [XEQ] [N]
 ```
 
-**Expected Result:** 29 days (2000 is divisible by 400, so is a leap year)
+**Expected Result:** 29 days for both (2024 is divisible by 4; 2000 is divisible by 400)
 
-### 6.10 Days from Reference Date
+**Note:** February 1900 lies outside the valid range. The formula treats 1900 as a leap year and returns 29 days, although February 1900 had 28.
 
-**Problem:** How many days between the moon landing (July 20, 1969) and today (Nov 2, 2024)?
+### 6.7 Days Since a Reference Date
+
+**Problem:** How many days between the moon landing (July 20, 1969) and November 2, 2024?
 
 **Solution:**
 ```
-11.022024 [XEQ] [B]
+7.201969 [ENTER] 11.022024 [XEQ] [N]
 ```
 
-**Expected Result:** 20,198 days
+**Expected Result:** 20,194 days
 
-**Customization Example:**
+### 6.8 Time Difference
 
-To count days from your birthday (e.g., June 15, 1985):
+**Problem:** A shift starts at 8:30 AM and ends at 5:15 PM. How long is it?
+
+**Solution:**
 ```
-1. Edit LBL B, line 2: Change 7.201969 to 6.151985
-2. Save program
-3. Run: 11.022024 [XEQ] [B] → Result: 14,385 days
+8.30 [ENTER] 17.15 [XEQ] [T]
 ```
+
+**Expected Result:** 8.4500 (8 hours 45 minutes)
+
+### 6.9 Time Difference with Seconds
+
+**Problem:** How much time elapsed between 9:15:30 and 14:05:45?
+
+**Solution:**
+```
+9.1530 [ENTER] 14.0545 [XEQ] [T]
+```
+
+**Expected Result:** 4.5015 (4 hours 50 minutes 15 seconds)
+
+### 6.10 Overnight Time Difference
+
+**Problem:** A shift starts at 10:00 PM and ends at 6:30 AM the next morning.
+
+**Solution:**
+```
+22.00 [ENTER] 30.30 [XEQ] [T]
+```
+
+**Expected Result:** 8.3000 (8 hours 30 minutes). Entering 6.30 instead of 30.30 returns -15.3000.
 
 ---
 
-## QUICK REFERENCE
+## 7. QUICK REFERENCE
 
-### Function Summary
+### 7.1 Function Summary
 
-| Label | Function | Inputs |
-|-------|----------|--------|
-| **N** | Days Between Dates | Date1 [ENTER] Date2 |
-| **D** | Date ± Days | Date [ENTER] Days |
-| **E** | Easter Sunday | Year |
-| **C** | Catholic Holy Days | Year |
-| **B** | Days from 7.201969 | Date |
+| Label | Function | Inputs | Output |
+|-------|----------|--------|--------|
+| **N** | Days between dates | Date1 [ENTER] Date2 | X: days |
+| **D** | Date ± days | Date [ENTER] Days | X: date, Y: day of week |
+| **W** | Day of week | Date | X: 0 (Sun) to 6 (Sat) |
+| **T** | Time difference | Start [ENTER] End | X: H.MMSS |
 
-### Date Format
+### 7.2 Formats
 
-**Format:** M.DDYYYY
+- **Date:** M.DDYYYY (October 31, 2025 = `10.312025`)
+- **Time:** H.MMSS (2:05:09 PM = `14.0509`)
 
-**Examples:**
-- January 5, 2024 = `1.052024`
-- October 31, 2025 = `10.312025`
-- December 1, 2000 = `12.012000`
+### 7.3 Day of Week Numbers
 
-### Flag F1 - Day of Week
+| 0 | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| Sun | Mon | Tue | Wed | Thu | Fri | Sat |
 
-**Flag 1 is SET BY DEFAULT** when the statefile is loaded.
+### 7.4 Important Notes
 
-When Flag 1 is set, LBL D automatically calculates day of week:
-- `[RCL] [W]` - View day of week (0-6 or 1-7)
-- `[CF] [1]` - Clear flag to disable feature
-- `[SF] [1]` - Set flag to re-enable feature
-
-### Register Storage
-
-After running LBL C (Catholic Holy Days):
-- `[RCL] [H]` - Ash Wednesday
-- `[RCL] [E]` - Easter Sunday
-- `[RCL] [N]` - Ascension Thursday
-- `[RCL] [C]` - Corpus Christi
-
-### Important Notes
-
-- Dates must be entered in M.DDYYYY format (no separators between components)
+- Dates are exact from 3.011900 through 2.282100; results outside this range are off by one day per skipped century leap year
+- Dates must be entered in M.DDYYYY format with no separators between components
 - Use `[+/-]` to make days negative for backward date arithmetic
-- Flag 1 is SET BY DEFAULT - LBL D automatically calculates day of week (disable with `[CF] [1]`)
-- Programs handle leap years automatically per Gregorian calendar rules
-- Easter calculations valid for years 1583 forward (Gregorian calendar adoption)
-- Catholic holy days are calculated relative to Easter Sunday
-- LBL B reference date (7.201969) is an example - customize to your own significant date
+- Times use H.MMSS format; for an overnight span, add 24 to the end time
+- LBL T rounds with RND, which follows the display setting; FIX 6 (saved in the Statefile) gives exact seconds, while FIX 0 rounds to whole minutes
+- The program does not check for invalid dates: 2.302024 is treated as 3.012024
 
 ---
 
-## PROGRAM LISTING
+## 8. PROGRAM LISTING
 
-The complete program listing is provided below in standard DM32 RPN format, organized by function labels.
+The complete program listing is provided below. Program steps are shown in standard DM32 RPN format with label-relative line numbers, as displayed on the calculator. The DM32 does not generate checksums.
 
-### LBL J - Date to Julian Day Number
-```
-LBL J
-STO X
-R↓
-STO Y
-R↓
-STO Z
-R↓
-STO T
-R↓
-IP
-LASTx
-FP
-100
-×
-FP
-LASTx
-IP
-x<>y
-1E4
-×
-R↑
-2
--
-x>0?
-GTO K
-12
-+
-x<>y
-1
--
-x<>y
-LBL K
-1
--
-153
-×
-2
-+
-5
-÷
-IP
-R↑
-+
-x<>y
-ENTER
-ENTER
-100
-÷
-IP
-146097
-×
-4
-÷
-IP
-x<>y
-100
-XEQ M
-1461
-×
-4
-÷
-IP
-+
-+
-1721119
-+
-STO X
-RCL T
-RCL Z
-RCL Y
-R↑
-RTN
-```
+### LBL T - Time Difference
 
-### LBL G - Julian Day Number to Date
 ```
-LBL G
-STO X
-R↓
-STO Y
-R↓
-STO Z
-R↓
-STO T
-R↓
-1721119
--
-4
-×
-1
--
-ENTER
-ENTER
-146097
-÷
-x<>y
-LASTx
-XEQ M
-4
-÷
-IP
-4
-×
-3
-+
-ENTER
-ENTER
-1461
-XEQ M
-x<>y
-1461
-÷
-IP
-R↑
-IP
-100
-×
-+
-x<>y
-4
-+
-4
-÷
-IP
-5
-×
-3
--
-ENTER
-ENTER
-153
-XEQ M
-x<>y
-153
-÷
-IP
-10
--
-x<0?
-GTO H
-12
--
-R↑
-1
-+
-R↑
-x<>y
-R↓
-R↓
-LBL H
-13
-+
-x<>y
-5
-+
-5
-÷
-IP
-R↑
-1E4
-÷
-+
-100
-÷
-+
-STO X
-RCL Y
-RCL Z
-RCL T
-R↑
-RTN
+T01  LBL T    Time difference. Y: start, X: end.
+T02  →HR      End to decimal hours.
+T03  x<>y
+T04  →HR      Start to decimal hours.
+T05  -        End − start.
+T06  60
+T07  ×        Minutes.
+T08  RND      Rounds to display setting.
+T09  60
+T10  ÷        Back to hours.
+T11  →HMS     Converts to H.MMSS.
+T12  RTN      Returns elapsed time in X.
 ```
 
 ### LBL N - Days Between Dates
+
 ```
-LBL N
-XEQ J
-x<>y
-XEQ J
--
-RTN
+N01  LBL N    Days between dates. Y: date 1,
+N02  XEQ J    X: date 2. Date 2 to day number.
+N03  x<>y     Recalls date 1.
+N04  XEQ J    Date 1 to day number.
+N05  -        Day number 2 − day number 1.
+N06  R↑       Clears the stack,
+N07  CLx
+N08  ENTER
+N09  ENTER
+N10  R↑       leaving days in X.
+N11  RTN
 ```
 
 ### LBL D - Date Arithmetic
+
 ```
-LBL D
-x<>y
-XEQ J
-+
-XEQ G
-FIX 6
-FS? 1
-XEQ W
-FS? 1
-x<>y
-RTN
+D01  LBL D    Date ± days. Y: date, X: days.
+D02  x<>y
+D03  XEQ J    Date to day number.
+D04  +        Adds days.
+D05  XEQ G    Day number to date.
+D06  ENTER    Copies date.
+D07  x<>y
+D08  XEQ W    Day of week.
+D09  x<>y     X: new date, Y: day of week.
+D10  RTN
 ```
 
-### LBL W - Day of Week Calculator (F1 subroutine)
+### LBL C - Day-Number Constants
+
 ```
-LBL W
-STO D
-XEQ J
-1
-+
-7
-XEQ M
-x=0?
-7
-STO W
-CLx
-ENTER
-ENTER
-ENTER
-FS? 1
-RCL D
-FS? 1
-FIX 6
-RCL W
-RTN
-RTN
+C01  LBL C    Loads day-number constants.
+C02  365.25   Days per year, B.
+C03  STO B
+C04  30.6001  Month factor, D.
+C05  STO D
+C06  1720982  Day-number offset, E.
+C07  STO E
+C08  RTN
+```
+
+### LBL J - Date to Day Number
+
+```
+J01  LBL J    Date to day number. X: M.DDYYYY.
+J02  x<>y     Saves the other stack value
+J03  STO N    in N.
+J04  R↓
+J05  ENTER
+J06  IP       Month.
+J07  STO I    Stored in I.
+J08  R↓
+J09  FP
+J10  100
+J11  ×        DD.YYYY.
+J12  ENTER
+J13  IP       Day.
+J14  STO F    Stored in F.
+J15  R↓
+J16  FP
+J17  4
+J18  10ˣ
+J19  ×        Year.
+J20  STO P    Stored in P.
+J21  RCL I
+J22  2
+J23  x<y?     Month after February?
+J24  GTO A    If so, I = month + 1.
+J25  13
+J26  STO+ I   January or February: I = month + 13,
+J27  1
+J28  STO- P   year − 1.
+J29  GTO F
+```
+
+### LBL A - Month Index, March to December
+
+```
+A01  LBL A    March to December.
+A02  1
+A03  STO+ I   I = month + 1.
+```
+
+### LBL F - Day-Number Formula
+
+```
+F01  LBL F    Day-number formula.
+F02  XEQ C    Loads constants.
+F03  RCL P
+F04  RCL B
+F05  ×
+F06  IP       IP(365.25 × year).
+F07  RCL I
+F08  RCL D
+F09  ×
+F10  IP       IP(30.6001 × I).
+F11  +
+F12  RCL F
+F13  +        + day.
+F14  RCL E
+F15  +        + 1720982.
+F16  RCL N
+F17  x<>y     X: day number, Y: saved value.
+F18  RTN
+```
+
+### LBL G - Day Number to Date
+
+```
+G01  LBL G    Day number to date.
+G02  RCL E
+G03  -
+G04  STO F    F = day number − E.
+G05  122
+G06  -
+G07  10
+G08  1/x
+G09  -        F − 122.1.
+G10  RCL B
+G11  ÷
+G12  IP       Year.
+G13  STO P    Stored in P.
+G14  RCL B
+G15  ×
+G16  IP
+G17  +/-
+G18  RCL F
+G19  +        Days into year.
+G20  RCL D
+G21  ÷
+G22  IP       Month index.
+G23  STO I    Stored in I.
+G24  RCL D
+G25  ×
+G26  IP
+G27  RCL P
+G28  RCL B
+G29  ×
+G30  IP
+G31  +
+G32  +/-
+G33  RCL F
+G34  +        Day of month.
+G35  STO F    Stored in F.
+G36  14
+G37  RCL I
+G38  x<y?     I below 14?
+G39  GTO E    If so, month = I − 1.
+G40  13
+G41  STO- I   Otherwise month = I − 13.
+G42  GTO L
+```
+
+### LBL E - Month from Index
+
+```
+E01  LBL E    Month = I − 1.
+E02  1
+E03  STO- I
+```
+
+### LBL L - Year Correction
+
+```
+L01  LBL L    Year correction.
+L02  RCL I
+L03  2
+L04  x<y?     Month after February?
+L05  GTO H
+L06  1
+L07  STO+ P   January or February: year + 1.
+```
+
+### LBL H - Build M.DDYYYY
+
+```
+H01  LBL H    Builds M.DDYYYY.
+H02  RCL P
+H03  6
+H04  10ˣ
+H05  ÷        Year ÷ 10⁶.
+H06  RCL F
+H07  100
+H08  ÷        Day ÷ 100.
+H09  +
+H10  RCL I
+H11  +        + month.
+H12  FIX 6    Restores display.
+H13  RTN      Returns date in X.
 ```
 
 ### LBL M - Modulo Function
+
 ```
-LBL M
-STO I
-x<>y
-STO P
-x<>y
-÷
-IP
-RCL I
-×
-RCL P
-x<>y
--
-RTN
+M01  LBL M    Modulo. Y: dividend, X: divisor.
+M02  STO I    Divisor.
+M03  x<>y
+M04  STO P    Dividend.
+M05  x<>y
+M06  ÷
+M07  IP       IP(dividend ÷ divisor).
+M08  RCL I
+M09  ×
+M10  RCL P
+M11  x<>y
+M12  -        Remainder.
+M13  RTN
 ```
 
-### LBL O - Easter Computus Algorithm (internal)
-```
-LBL O
-R↓
-STO Y
-R↓
-STO Z
-R↓
-STO T
-R↓
-ENTER
-ENTER
-100
-÷
-IP
-1
-+
-ENTER
-ENTER
-8
-×
-5
-+
-25
-÷
-IP
-5
--
-x<>y
-3
-×
-4
-÷
-IP
-12
--
--
-20
-+
-R↑
-19
-XEQ M
-1
-+
-11
-×
-+
-LASTx
-11
-÷
-LASTx
--
-x<>y
-30
-XEQ M
-24
--
-x=0?
-GTO P
-x<>y
-x≤0?
-GTO Q
-x<>y
-1
--
-x≠0?
-GTO P
-1
-+
-LBL P
-1
-+
-x<>y
-LBL Q
-R↓
-20
-x<>y
--
-21
--
-x≥0?
-GTO R
-30
-+
-LBL R
-21
-+
-R↑
-100
-÷
-IP
-1
-+
-3
-×
-4
-÷
-IP
-12
--
-4
-×
-5
-R↑
-×
-LASTx
-R↓
-x<>y
--
-4
-÷
-IP
-10
--
-x<>y
-+
-LASTx
-7
-+
-x<>y
-7
-XEQ M
--
-59
-+
-x<>y
-400
-XEQ M
-x=0?
-GTO S
-R↑
-x<>y
-R↓
-100
-XEQ M
-x=0?
-GTO T
-R↑
-x<>y
-R↓
-4
-XEQ M
-x≠0?
-GTO T
-LBL S
-x<>y
-1
-+
-x<>y
-LBL T
-R↑
-+
-x<>y
-STO X
-RCL T
-RCL Z
-RCL Y
-R↑
-RTN
-```
+### LBL W - Day of Week
 
-### LBL E - Easter Date Calculator
 ```
-LBL E
-XEQ O
-LASTx
-1E6
-÷
-1.01
-+
-XEQ J
-+
-1
--
-XEQ G
-FIX 6
-RTN
+W01  LBL W    Day of week. X: date.
+W02  XEQ J    Date to day number.
+W03  1
+W04  +        Day number + 1.
+W05  7
+W06  XEQ M    Mod 7.
+W07  RTN      0 = Sunday to 6 = Saturday.
 ```
-
-### LBL C - Catholic Holy Days Calculator
-```
-LBL C
-XEQ E
-STO E
--46
-XEQ D
-STO H
-RCL E
-49
-XEQ D
-STO N
-RCL E
-60
-XEQ D
-STO C
-FIX 6
-RCL H
-RCL E
-RCL N
-RCL C
-RTN
-```
-
-### LBL B - Days from Reference Date
-```
-LBL B
-7.201969
-x<>y
-XEQ N
-RTN
-```
-
-**Note:** To customize LBL B reference date, change the second line (7.201969) to your desired date in M.DDYYYY format.
 
 ---
 
@@ -914,7 +649,7 @@ This program suite is provided as-is for educational and personal use.
 ### By jacober-calc for SwissMicros DM32
 
 > - [SwissMicros Website](https://www.swissmicros.com)
-> - [DM32 product page](https://www.swissmicros.com/product/model-dm32)
-> - [SwissMicros full products page](https://www.swissmicros.com/products)
+> - [DM32 product page](https://www.swissmicros.com/en/products/dm32)
+> - [SwissMicros full products page](https://www.swissmicros.com/en/shop)
 > - [DM32 Online User Manual](https://technical.swissmicros.com/dm32/doc/dm32_user_manual.html)
 > - [SwissMicros Calculator Forum](https://forum.swissmicros.com/index.php)
